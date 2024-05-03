@@ -1,11 +1,8 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react';
-import axios, { AxiosError } from 'axios';
-import dayjs from 'dayjs';
-import { X } from 'lucide-react';
-import { Message } from '@/model/User';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React from "react";
+import { X } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,39 +13,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Button } from './ui/button';
-import { useToast } from '@/components/ui/use-toast';
-import { ApiResponse } from '@/types/ApiResponse';
+} from "@/components/ui/alert-dialog";
+import { Button } from "./ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { deleteMessage } from "@/actions/message";
 
-type MessageCardProps = {
-  message: Message;
-  onMessageDelete: (messageId: string) => void;
-};
-
-export function MessageCard({ message, onMessageDelete }: MessageCardProps) {
+export function MessageCard({ message }: { message: any }) {
   const { toast } = useToast();
 
   const handleDeleteConfirm = async () => {
-    try {
-      const response = await axios.delete<ApiResponse>(
-        `/api/delete-message/${message._id}`
-      );
+    const response = await deleteMessage(message.id);
+    if (response.type === "error") {
       toast({
-        title: response.data.message,
+        title: response.message,
+        variant: "destructive",
       });
-      onMessageDelete(message._id);
-
-    } catch (error) {
-      const axiosError = error as AxiosError<ApiResponse>;
+    } else {
       toast({
-        title: 'Error',
-        description:
-          axiosError.response?.data.message ?? 'Failed to delete message',
-        variant: 'destructive',
+        title: "Success",
+        description: "Message deleted successfully",
       });
-    } 
+    }
   };
+
+  let createdAt = new Date(message.createdAt).toDateString();
 
   return (
     <Card className="card-bordered">
@@ -57,7 +45,7 @@ export function MessageCard({ message, onMessageDelete }: MessageCardProps) {
           <CardTitle>{message.content}</CardTitle>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant='destructive'>
+              <Button variant="destructive">
                 <X className="w-5 h-5" />
               </Button>
             </AlertDialogTrigger>
@@ -70,9 +58,7 @@ export function MessageCard({ message, onMessageDelete }: MessageCardProps) {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>
-                  Cancel
-                </AlertDialogCancel>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDeleteConfirm}>
                   Continue
                 </AlertDialogAction>
@@ -80,9 +66,7 @@ export function MessageCard({ message, onMessageDelete }: MessageCardProps) {
             </AlertDialogContent>
           </AlertDialog>
         </div>
-        <div className="text-sm">
-          {dayjs(message.createdAt).format('MMM D, YYYY h:mm A')}
-        </div>
+        <div className="text-sm">{createdAt}</div>
       </CardHeader>
       <CardContent></CardContent>
     </Card>
