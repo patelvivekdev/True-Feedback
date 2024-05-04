@@ -5,6 +5,10 @@ import { auth } from "@/app/auth";
 import supabase from "@/lib/supabase/private";
 import { findUserByUsername } from "@/db/user";
 
+export async function reFetchMessages() {
+  revalidatePath("/dashboard");
+}
+
 export async function getMessages() {
   const session = await auth();
   const _user: User = session?.user;

@@ -5,9 +5,10 @@ import { sendVerificationEmail } from "@/helpers/sendVerificationEmail";
 import { signUpSchema, usernameValidation } from "@/schemas/signUpSchema";
 import { nextAuthClient } from "@/lib/supabase/private";
 import { signInSchema } from "@/schemas/signInSchema";
-import { CredentialsSignin } from "next-auth";
-import { signIn, signOut } from "@/app/auth";
+import { CredentialsSignin, User } from "next-auth";
+import { signIn, signOut, auth } from "@/app/auth";
 import { createUser, findUserByUsername, getUserEmail } from "@/db/user";
+import { revalidatePath } from "next/cache";
 
 export async function SignIn() {
   await signIn("github", { redirectTo: "/dashboard" });
@@ -266,4 +267,36 @@ export async function resendCode(username: string) {
     type: "success",
     message: "Code resent",
   };
+}
+
+export async function changeAcceptMessages(isAcceptingMessages: boolean) {
+  const session = await auth();
+  const _user: User = session?.user;
+
+  if (!session || !_user) {
+    return {
+      type: "error",
+      message: "Not authenticated",
+    };
+  }
+
+  const userId = _user.id;
+
+  const { data, error } = await nextAuthClient
+    .from("users")
+    .update({ isAcceptingMessages: isAcceptingMessages })
+    .eq("id", userId);
+
+  if (error) {
+    return {
+      type: "error",
+      message: "Failed to update user",
+    };
+  } else {
+    revalidatePath("/dashboard");
+    return {
+      type: "success",
+      message: "Setting updated successfully",
+    };
+  }
 }
