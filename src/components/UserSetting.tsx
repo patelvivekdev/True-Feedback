@@ -2,7 +2,7 @@
 
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/components/ui/use-toast";
+import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,7 +16,6 @@ import { reFetchMessages } from "@/actions/message";
 function UserSetting({ isAcceptingMessages }: { isAcceptingMessages: boolean }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSwitchLoading, setIsSwitchLoading] = useState(false);
-  const { toast } = useToast();
   const form = useForm({
     resolver: zodResolver(AcceptMessageSchema),
   });
@@ -32,16 +31,10 @@ function UserSetting({ isAcceptingMessages }: { isAcceptingMessages: boolean }) 
     setIsSwitchLoading(true);
     const response = await changeAcceptMessages(!isAcceptingMessages);
     if (response.type === "error") {
-      toast({
-        title: response.message,
-        variant: "destructive",
-      });
+      toast.error(response.message);
     } else {
       setValue("acceptMessages", !isAcceptingMessages);
-      toast({
-        title: response.message,
-        variant: "default",
-      });
+      toast.success(response.message)
     }
     setIsSwitchLoading(false);
   };

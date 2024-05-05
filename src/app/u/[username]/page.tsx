@@ -15,7 +15,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/components/ui/use-toast";
+import toast from "react-hot-toast";
 import * as z from "zod";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -32,10 +32,6 @@ export default function SendMessage() {
 
   const messageContent = form.watch("content");
 
-  const handleMessageClick = (message: string) => {
-    form.setValue("content", message);
-  };
-
   const [isLoading, setIsLoading] = useState(false);
 
   const onSubmit = async (data: z.infer<typeof messageSchema>) => {
@@ -43,14 +39,9 @@ export default function SendMessage() {
     const response = await sendMessage(username, data.content);
 
     if (response.type === "error") {
-      toast({
-        title: response.message,
-        variant: "destructive",
-      });
+      toast.error(response.message)
     } else {
-      toast({
-        title: response.message,
-      });
+      toast.success(response.message)
       // Reset the form and set isLoading to false
       form.reset({ ...form.getValues(), content: "" });
     }

@@ -9,7 +9,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
+import toast from "react-hot-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -20,7 +20,6 @@ import { resendCode, verifyCode } from "@/actions/auth";
 export default function VerifyAccount() {
   const router = useRouter();
   const params = useParams<{ username: string }>();
-  const { toast } = useToast();
   const form = useForm<z.infer<typeof verifySchema>>({
     resolver: zodResolver(verifySchema),
   });
@@ -29,16 +28,9 @@ export default function VerifyAccount() {
     const response = await verifyCode(params.username, data.code);
 
     if (response.type === "error") {
-      toast({
-        title: "Verification Failed",
-        description: response.message,
-        variant: "destructive",
-      });
+      toast.error(response.message);
     } else {
-      toast({
-        title: "Verification Successful",
-        description: response.message,
-      });
+      toast.success(response.message);
       router.replace("/sign-in");
     }
   };
@@ -46,16 +38,10 @@ export default function VerifyAccount() {
   const handleBtnClick = async () => {
     const response = await resendCode(params.username);
     if (response.type === "error") {
-      toast({
-        title: "Resend Failed",
-        description: response.message,
-        variant: "destructive",
-      });
+      toast.error(response.message);
+    } else {
+      toast.success(response.message);
     }
-    toast({
-      title: "Resend Successful",
-      description: response.message,
-    });
   };
 
   return (

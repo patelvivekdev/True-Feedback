@@ -17,12 +17,12 @@ export default async function Home() {
           </p>
         </section>
         <MessageCarousel />
-        {JSON.stringify(session, null, 2)}
+        {/* {JSON.stringify(session, null, 2)} */}
       </main>
 
       {/* Footer */}
       <footer className="text-center p-4 md:p-6 bg-gray-900 text-white">
-        © {year} True Feedback. All rights reserved.
+        © {year} True Feedback | Made with NextJs | AuthJs
       </footer>
     </>
   );

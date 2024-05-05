@@ -15,24 +15,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "./ui/button";
-import { useToast } from "@/components/ui/use-toast";
+import toast from "react-hot-toast";
 import { deleteMessage } from "@/actions/message";
 
 export function MessageCard({ message }: { message: any }) {
-  const { toast } = useToast();
-
   const handleDeleteConfirm = async () => {
     const response = await deleteMessage(message.id);
     if (response.type === "error") {
-      toast({
-        title: response.message,
-        variant: "destructive",
-      });
+      toast.error(response.message);
     } else {
-      toast({
-        title: "Success",
-        description: "Message deleted successfully",
-      });
+      toast.success(response.message);
     }
   };
 

@@ -15,7 +15,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
+import toast from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signUpSchema } from "@/schemas/signUpSchema";
@@ -29,7 +29,6 @@ export default function SignUpForm() {
   const debouncedUsername = useDebounce(username, 300);
 
   const router = useRouter();
-  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof signUpSchema>>({
     resolver: zodResolver(signUpSchema),
@@ -67,16 +66,9 @@ export default function SignUpForm() {
     const response = await saveUser(data);
 
     if (response?.type === "error") {
-      toast({
-        title: "Sign Up Failed",
-        description: response?.message,
-        variant: "destructive",
-      });
+      toast.error(response.message);
     } else {
-      toast({
-        title: "Success",
-        description: response?.message,
-      });
+      toast.success(response.message);
     }
     setIsSubmitting(false);
     router.replace(`/verify/${username}`);
@@ -152,7 +144,7 @@ export default function SignUpForm() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Please wait
+                  Signing Up
                 </>
               ) : (
                 "Sign Up"

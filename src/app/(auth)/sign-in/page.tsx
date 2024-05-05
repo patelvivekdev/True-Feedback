@@ -1,9 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { signIn } from "next-auth/react";
 import {
   Form,
   FormField,
@@ -15,14 +15,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useToast } from "@/components/ui/use-toast";
+import { Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 import { signInSchema } from "@/schemas/signInSchema";
 import { login } from "@/actions/auth";
 import { SignInBtn } from "@/components/OauthButton";
 
 export default function SignInForm() {
   const router = useRouter();
-
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const form = useForm<z.infer<typeof signInSchema>>({
     resolver: zodResolver(signInSchema),
     defaultValues: {
@@ -31,21 +32,16 @@ export default function SignInForm() {
     },
   });
 
-  const { toast } = useToast();
   const onSubmit = async (data: z.infer<typeof signInSchema>) => {
+    setIsSubmitting(true);
     const response = await login(data);
     if (response?.type === "error") {
-      toast({
-        title: "Error",
-        description: response.message,
-        variant: "destructive",
-      });
+      toast.error(response.message);
+      setIsSubmitting(false);
     } else {
-      toast({
-        title: "Success",
-        description: "Logged in successfully",
-      });
+      toast.success("Logged in successfully");
       router.replace("/dashboard");
+      setIsSubmitting(false);
     }
   };
 
@@ -82,8 +78,15 @@ export default function SignInForm() {
                 </FormItem>
               )}
             />
-            <Button className="w-full" type="submit">
-              Sign In
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing In
+                </>
+              ) : (
+                "Sign In"
+              )}
             </Button>
           </form>
         </Form>
@@ -96,9 +99,6 @@ export default function SignInForm() {
           </p>
         </div>
         <div className="flex flex-col gap-4 justify-center items-center">
-          {/* <Button className="w-full" onClick={() => signIn("github")}>
-            Sign in with Github
-          </Button> */}
           <SignInBtn />
         </div>
       </div>
