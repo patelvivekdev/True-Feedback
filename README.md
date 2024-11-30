@@ -4,12 +4,12 @@ This is fork of truefeedback from [Hitesh Choudhary](https://github.com/hiteshch
 
 - [x] Use latest version of Nextjs.
 - [x] Use server actions for mutations.
-- [x] Use [Supabase](https://supabase.com/) for database.
-- [x] Use Authjs for authentication with Oauth and credentials. 
+- [x] Use [Turso](https://turso.tech/) for database.
+- [x] Use Authjs for authentication with Oauth and credentials.
 
 ## Getting Started
 
-### Install 
+### Install
 
 ```bash
 npm i
@@ -30,9 +30,7 @@ bun run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-
 ## Links
 
 - [Live Link](https://truefeedback.patelvivekdev.vercel.app/)
 - [Read More About server actions](https://patelvivekdev/blog/server-actions)
-

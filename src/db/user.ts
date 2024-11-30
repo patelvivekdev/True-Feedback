@@ -1,68 +1,79 @@
-import { AuthError, User } from "next-auth";
-import { nextAuthClient } from "@/lib/supabase/private";
-import { auth } from "@/app/auth";
-import bcrypt from "bcryptjs";
+import 'server-only';
+import { AuthError } from 'next-auth';
+import bcrypt from 'bcryptjs';
+import { db } from '.';
+import { users } from './schema';
+import { and, eq, or } from 'drizzle-orm';
 
 class InvalidTypeError extends AuthError {
-  code = "login-with-oauth";
+  code = 'login-with-oauth';
 }
 
+export const checkUsername = async (username: string) => {
+  const [user] = await db
+    .select({
+      username: users.username,
+    })
+    .from(users)
+    .where(eq(users.username, username));
+  return user;
+};
+
 export const findUserByEmail = async (email: string) => {
-  const { data } = await nextAuthClient
-    .from("users")
-    .select("*")
-    .eq("email", email)
-    .single();
-  return data;
+  const [user] = await db.select().from(users).where(eq(users.email, email));
+  return user;
 };
 
 export const getUserEmail = async (username: string) => {
-  const { data } = await nextAuthClient
-    .from("users")
-    .select("email")
-    .eq("username", username)
-    .single();
-  return data ? data.email : null;
+  const [email] = await db
+    .select({
+      email: users.email,
+    })
+    .from(users)
+    .where(eq(users.username, username));
+  return email;
 };
 
 export const findUserById = async (id: string) => {
-  const { data } = await nextAuthClient
-    .from("users")
-    .select("*")
-    .eq("id", id)
-    .single();
-  return data;
+  const [user] = await db.select().from(users).where(eq(users.id, id));
+  return user;
 };
 
 export const findUserByUsername = async (username: string) => {
-  const { data } = await nextAuthClient
-    .from("users")
-    .select("*")
-    .eq("username", username)
-    .single();
-  return data;
+  const [user] = await db.select().from(users).where(eq(users.username, username));
+  return user;
+};
+
+export const findUserByUsernameOrEmail = async (username: string, email: string) => {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(or(eq(users.username, username), eq(users.email, email)));
+
+  return user;
+};
+
+export const findIfUserUsedOAuth = async (username: string) => {
+  const [userId] = await db
+    .select({
+      userId: users.id,
+    })
+    .from(users)
+    .where(and(eq(users.password, ''), eq(users.username, username)));
+  return userId;
 };
 
 export const loginUser = async (identifier: string, password: string) => {
   // check if user is sign up with oauth
-  const { data: user } = await nextAuthClient
-    .from("users")
-    .select("*")
-    .or(`username.eq.${identifier},email.eq.${identifier}`)
-    .is("password", null)
-    .single();
+  const userId = await findIfUserUsedOAuth(identifier);
 
-  if (user) {
+  if (userId) {
     throw new InvalidTypeError();
   }
 
-  const { data } = await nextAuthClient
-    .from("users")
-    .select("*")
-    .or(`username.eq.${identifier},email.eq.${identifier}`)
-    .single();
+  const data = await findUserByUsernameOrEmail(identifier, identifier);
 
-  if (!data) {
+  if (!data.password || !data.email) {
     return null;
   }
   const isValid = await bcrypt.compare(password, data.password);
@@ -75,20 +86,42 @@ export const loginUser = async (identifier: string, password: string) => {
 export const createUser = async (
   username: string,
   email: string,
-  password: string
+  name: string,
+  password: string,
 ) => {
-  const { error } = await nextAuthClient
-    .from("users")
-    .insert([{ username, email, password }]);
-  if (error) {
-    return {
-      type: "error",
-      message: "Failed to create user",
-    };
-  } else {
-    return {
-      type: "success",
-      message: "User created successfully",
-    };
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const [user] = await db
+    .insert(users)
+    .values({
+      username,
+      email,
+      name,
+      password: hashedPassword,
+    })
+    .returning();
+  return user;
+};
+
+export const updateUser = async (
+  username: string,
+  data: {
+    username?: string;
+    email?: string;
+    password?: string;
+    isVerified?: boolean;
+    isAcceptingMessages?: boolean;
+  },
+) => {
+  try {
+    const [userId] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.username, username))
+      .returning({
+        id: users.id,
+      });
+    return userId;
+  } catch (error) {
+    console.log(error);
   }
 };

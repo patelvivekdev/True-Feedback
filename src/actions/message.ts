@@ -1,12 +1,14 @@
-"use server";
-import { User } from "next-auth";
-import { revalidatePath, unstable_noStore as noStore } from "next/cache";
-import { auth } from "@/app/auth";
-import supabase from "@/lib/supabase/private";
-import { findUserByUsername } from "@/db/user";
+'use server';
+import { User } from 'next-auth';
+import { revalidatePath } from 'next/cache';
+import { auth } from '@/app/auth';
+import { findUserByUsername } from '@/db/user';
+import { db } from '@/db';
+import { messages } from '@/db/schema';
+import { and, eq } from 'drizzle-orm';
 
 export async function reFetchMessages() {
-  revalidatePath("/dashboard");
+  revalidatePath('/dashboard');
 }
 
 export async function getMessages() {
@@ -14,24 +16,18 @@ export async function getMessages() {
   const _user: User = session?.user;
 
   const userId = _user.id;
-
-  // fetch all messages from the database
-  const { data, error } = await supabase
-    .from("Message")
-    .select("*")
-    .eq("user_id", userId)
-    .order("createdAt", { ascending: false });
-
-  if (error) {
+  if (!userId) {
     return {
-      type: "error",
-      message: error.message,
+      type: 'error',
+      message: 'Not authenticated',
     };
   }
 
+  const data = await db.select().from(messages).where(eq(messages.userId, userId));
+
   return {
-    type: "success",
-    messages: data,
+    type: 'success',
+    data,
   };
 }
 
@@ -40,8 +36,8 @@ export async function sendMessage(username: string, content: string) {
 
   if (!data) {
     return {
-      type: "error",
-      message: "User not found",
+      type: 'error',
+      message: 'User not found',
     };
   }
 
@@ -49,28 +45,32 @@ export async function sendMessage(username: string, content: string) {
 
   if (!data.isAcceptingMessages) {
     return {
-      type: "error",
-      message: `${data.username} are not accepting messages`,
+      type: 'error',
+      message: `${data.username} are not accepting messages at this time.`,
     };
   }
 
   // save new message
-  const { error } = await supabase
-    .from("Message")
-    .insert([{ user_id: userId, content }]);
+  const [id] = await db
+    .insert(messages)
+    .values({
+      userId,
+      content,
+    })
+    .returning({ id: messages.id });
 
-  if (error) {
+  if (!id) {
     return {
-      type: "error",
-      message: error.message,
+      type: 'error',
+      message: 'Failed to send message',
     };
   }
 
-  revalidatePath("/dashboard");
+  revalidatePath('/dashboard');
 
   return {
-    type: "success",
-    message: "Message sent successfully",
+    type: 'success',
+    message: 'Message sent successfully',
   };
 }
 
@@ -79,24 +79,19 @@ export async function deleteMessage(messageId: string) {
   const _user: User = session?.user;
 
   const userId = _user.id;
-
-  const { error } = await supabase
-    .from("Message")
-    .delete()
-    .eq("id", messageId)
-    .eq("user_id", userId);
-
-  if (error) {
+  if (!userId) {
     return {
-      type: "error",
-      message: error.message,
+      type: 'error',
+      message: 'Not authenticated',
     };
   }
 
-  revalidatePath("/dashboard");
+  await db.delete(messages).where(and(eq(messages.id, messageId), eq(messages.userId, userId)));
+
+  revalidatePath('/dashboard');
 
   return {
-    type: "success",
-    message: "Message deleted successfully",
+    type: 'success',
+    message: 'Message deleted successfully',
   };
 }

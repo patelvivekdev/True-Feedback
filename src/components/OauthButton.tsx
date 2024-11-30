@@ -1,6 +1,6 @@
 // import { signOut } from "next-auth/react";
-import { SignIn, SignOut } from "@/actions/auth";
-import { Button } from "@/components/ui/button";
+import { SignIn, SignOut } from '@/actions/auth';
+import { Button } from '@/components/ui/button';
 
 export function SignOutBtn(props: React.ComponentPropsWithRef<typeof Button>) {
   return (

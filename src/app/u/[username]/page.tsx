@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import React, { useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import {
   Form,
   FormControl,
@@ -13,14 +13,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
-import toast from "react-hot-toast";
-import * as z from "zod";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { messageSchema } from "@/schemas/messageSchema";
-import { sendMessage } from "@/actions/message";
+} from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
+import * as z from 'zod';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { messageSchema } from '@/schemas/messageSchema';
+import { sendMessage } from '@/actions/message';
 
 export default function SendMessage() {
   const params = useParams<{ username: string }>();
@@ -30,7 +30,7 @@ export default function SendMessage() {
     resolver: zodResolver(messageSchema),
   });
 
-  const messageContent = form.watch("content");
+  const messageContent = form.watch('content');
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -38,21 +38,19 @@ export default function SendMessage() {
     setIsLoading(true);
     const response = await sendMessage(username, data.content);
 
-    if (response.type === "error") {
-      toast.error(response.message)
+    if (response.type === 'error') {
+      toast.error(response.message);
     } else {
-      toast.success(response.message)
+      toast.success(response.message);
       // Reset the form and set isLoading to false
-      form.reset({ ...form.getValues(), content: "" });
+      form.reset({ ...form.getValues(), content: '' });
     }
     setIsLoading(false);
   };
 
   return (
-    <div className="container mx-auto my-8 p-6 bg-white rounded max-w-4xl">
-      <h1 className="text-4xl font-bold mb-6 text-center">
-        Public Profile Link
-      </h1>
+    <div className="container mx-auto my-8 max-w-4xl rounded bg-white p-6">
+      <h1 className="mb-6 text-center text-4xl font-bold">Public Profile Link</h1>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField

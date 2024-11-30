@@ -1,16 +1,15 @@
-import NextAuth, { AuthError } from "next-auth";
-import { SupabaseAdapter } from "@auth/supabase-adapter";
-import Credentials from "next-auth/providers/credentials";
-import GitHub from "next-auth/providers/github";
-import type { NextAuthConfig } from "next-auth";
-import { findUserById, loginUser } from "@/db/user";
+import NextAuth, { AuthError } from 'next-auth';
+import { DrizzleAdapter } from '@auth/drizzle-adapter';
+import Credentials from 'next-auth/providers/credentials';
+import GitHub from 'next-auth/providers/github';
+import type { NextAuthConfig } from 'next-auth';
+import { findUserById, loginUser } from '@/db/user';
+import { db } from '@/db';
+import { accounts, authenticators, sessions, users, verificationTokens } from '@/db/schema';
 
-class InvalidTypeError extends AuthError {
-  code = "login-with-oauth";
+export class InvalidTypeError extends AuthError {
+  code = 'login-with-oauth';
 }
-
-let url = process.env.SUPABASE_URL as string;
-let secret = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
 
 export const config = {
   providers: [
@@ -27,17 +26,27 @@ export const config = {
       },
     }),
     Credentials({
-      async authorize(credentials: any) {
+      async authorize(credentials: Partial<Record<string, unknown>>) {
         try {
-          const user = await loginUser(
-            credentials.identifier,
-            credentials.password
-          );
+          if (
+            !credentials?.identifier ||
+            !credentials?.password ||
+            typeof credentials.identifier !== 'string' ||
+            typeof credentials.password !== 'string'
+          ) {
+            return null;
+          }
+          const user = await loginUser(credentials.identifier, credentials.password);
           if (!user) {
             return null;
           }
-          return user;
-        } catch (error: any) {
+          return {
+            ...user,
+            username: user.username ?? '', // Ensure username is always a string
+            isVerified: user.isVerified ?? false, // Ensure isVerified is always a boolean
+            isAcceptingMessages: user.isAcceptingMessages ?? false, // Ensure isAcceptingMessages is always a boolean
+          };
+        } catch (error: unknown) {
           if (error instanceof AuthError) {
             throw new InvalidTypeError(error.message);
           } else {
@@ -47,9 +56,12 @@ export const config = {
       },
     }),
   ],
-  adapter: SupabaseAdapter({
-    url,
-    secret,
+  adapter: DrizzleAdapter(db, {
+    usersTable: users,
+    accountsTable: accounts,
+    sessionsTable: sessions,
+    verificationTokensTable: verificationTokens,
+    authenticatorsTable: authenticators,
   }),
   callbacks: {
     async jwt({ token }) {
@@ -72,12 +84,12 @@ export const config = {
     },
   },
   session: {
-    strategy: "jwt",
+    strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 Days
   },
   secret: process.env.AUTH_SECRET,
   pages: {
-    signIn: "/sign-in",
+    signIn: '/sign-in',
   },
 } satisfies NextAuthConfig;
 

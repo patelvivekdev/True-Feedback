@@ -1,17 +1,16 @@
-"use server";
-import bcrypt from "bcryptjs";
-import { z } from "zod";
-import { sendVerificationEmail } from "@/helpers/sendVerificationEmail";
-import { signUpSchema, usernameValidation } from "@/schemas/signUpSchema";
-import { nextAuthClient } from "@/lib/supabase/private";
-import { signInSchema } from "@/schemas/signInSchema";
-import { CredentialsSignin, User } from "next-auth";
-import { signIn, signOut, auth } from "@/app/auth";
-import { createUser, findUserByUsername, getUserEmail } from "@/db/user";
-import { revalidatePath } from "next/cache";
+'use server';
+import { z } from 'zod';
+import { sendVerificationEmail } from '@/helpers/sendVerificationEmail';
+import { signUpSchema, usernameValidation } from '@/schemas/signUpSchema';
+import { signInSchema } from '@/schemas/signInSchema';
+import { CredentialsSignin, User } from 'next-auth';
+import { signIn, signOut, auth, InvalidTypeError } from '@/app/auth';
+import { checkUsername, createUser, findUserByUsernameOrEmail, updateUser } from '@/db/user';
+import { revalidatePath } from 'next/cache';
+import { findToken, saveToken, updateToken } from '@/db/token';
 
 export async function SignIn() {
-  await signIn("github", { redirectTo: "/dashboard" });
+  await signIn('github', { redirectTo: '/dashboard' });
 }
 
 export async function SignOut() {
@@ -22,88 +21,74 @@ export async function login(data: z.infer<typeof signInSchema>) {
   const validateFields = signInSchema.safeParse(data);
   if (!validateFields.success) {
     return {
-      type: "error",
+      type: 'error',
       errors: validateFields.error.flatten().fieldErrors,
-      message: "Invalid fields",
+      message: 'Invalid fields',
     };
   }
 
   const { identifier, password } = validateFields.data;
 
   try {
-    await signIn("credentials", {
+    await signIn('credentials', {
       redirect: false,
       identifier,
       password,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof CredentialsSignin) {
       switch (error.type) {
-        case "CredentialsSignin":
+        case 'CredentialsSignin':
           return {
-            type: "error",
-            message: "Invalid credentials",
+            type: 'error',
+            message: 'Invalid credentials',
           };
         default:
           return {
-            type: "error",
-            message: "Something went wrong",
+            type: 'error',
+            message: 'Something went wrong',
           };
       }
-    } else if (error.code === "login-with-oauth") {
+    } else if (error instanceof InvalidTypeError) {
       return {
-        type: "error",
+        type: 'error',
         message:
-          "If you previously login with Github, please login with github.",
+          'It looks like you signed up with a social account. Please sign in with the same method.',
       };
     } else {
       return {
-        type: "error",
-        message: "Something went wrong",
+        type: 'error',
+        message: 'Something went wrong',
       };
     }
   }
 }
 
 export async function saveUser(data: z.infer<typeof signUpSchema>) {
-  const { username, email, password } = data;
-  const { data: user, error } = await nextAuthClient
-    .from("users")
-    .select("username, isVerified")
-    .or(`username.eq.${username},email.eq.${email}`)
-    .eq("isVerified", true);
+  const { username, email, name, password } = data;
 
-  if (error) {
+  const user = await findUserByUsernameOrEmail(username, email);
+
+  if (user) {
     return {
-      type: "error",
-      message: "Database Error: Failed to check user.",
+      type: 'error',
+      message: 'User already exists with this email',
     };
   }
 
-  if (user?.length !== 0) {
-    return {
-      type: "error",
-      message: "User already exists with this email",
-    };
-  }
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const response = await createUser(username, email, hashedPassword);
-  if (response.type === "error") {
-    return response;
-  }
-  let token = Math.floor(100000 + Math.random() * 900000).toString();
-  let expires = new Date();
+  await createUser(username, email, name, password);
+
+  const token = Math.floor(100000 + Math.random() * 900000).toString();
+  const expires = new Date();
   expires.setMinutes(expires.getMinutes() + 15);
 
   // save token to the verifyCode table
-  const { error: verificationError } = await nextAuthClient
-    .from("verification_tokens")
-    .upsert([{ identifier: username, token, expires }]);
+  const verificationToken = await saveToken(username, token, expires);
 
-  if (verificationError) {
+  if (!verificationToken) {
     return {
-      type: "error",
-      message: "Database Error: Failed to send verification token.",
+      type: 'error',
+      message: 'Database Error: Failed to send verification token.',
     };
   }
 
@@ -111,12 +96,15 @@ export async function saveUser(data: z.infer<typeof signUpSchema>) {
 
   if (!emailResponse.success) {
     return {
-      type: "error",
-      message: "Failed to send verification email",
+      type: 'error',
+      message: 'Failed to send verification email',
     };
   }
 
-  return response;
+  return {
+    type: 'success',
+    message: 'User created successfully',
+  };
 }
 
 const UsernameQuerySchema = z.object({
@@ -129,143 +117,112 @@ export async function checkUniqueEmail(username: string) {
 
   if (!validatedFields.success) {
     return {
-      type: "error",
+      type: 'error',
       errors: validatedFields.error.flatten().fieldErrors,
-      message: "Invalid username",
+      message: 'Invalid username',
     };
   }
 
   try {
-    const { data, error } = await nextAuthClient
-      .from("users")
-      .select("username")
-      .eq("username", validatedFields.data.username);
-    if (error) {
-      console.log("Error", error);
+    const username = await checkUsername(validatedFields.data.username);
+    if (username) {
       return {
-        type: "error",
-        message: "Database Error: Failed to check username.",
+        type: 'error',
+        message: 'Username already exists',
       };
     }
-    if (data.length === 0) {
-      return {
-        type: "success",
-        message: "Username is unique",
-      };
-    } else {
-      return {
-        type: "error",
-        message: "Username is already taken.",
-      };
-    }
-  } catch (error) {
-    console.error("Error checking username:", error);
     return {
-      type: "error",
-      message: "An error occurred while checking the username.",
+      type: 'success',
+      message: 'Username is available',
+    };
+  } catch (error) {
+    console.error('Error checking username:', error);
+    return {
+      type: 'error',
+      message: 'An error occurred while checking the username.',
     };
   }
 }
 
 export async function verifyCode(username: string, code: string) {
-  const { data, error: verificationError } = await nextAuthClient
-    .from("verification_tokens")
-    .select("*")
-    .eq("identifier", username)
-    .single();
-  if (!data) {
+  const token = await findToken(username, code);
+  if (!token) {
     return {
-      type: "error",
-      message: "User not found",
-    };
-  }
-  if (verificationError) {
-    return {
-      type: "error",
-      message: "Database Error: Failed to check user.",
+      type: 'error',
+      message: 'User not found',
     };
   }
 
   // check the code and
-  if (data.token !== code) {
+  if (token.token !== code) {
     return {
-      type: "error",
-      message: "Invalid code",
+      type: 'error',
+      message: 'Invalid code',
     };
   }
 
   // expiration time
-  if (new Date(data.expires) < new Date()) {
+  if (new Date(token.expires) < new Date()) {
     return {
-      type: "error",
-      message: "Code expired",
+      type: 'error',
+      message: 'Code expired',
     };
   }
 
   // update the user
-  const { error } = await nextAuthClient
-    .from("users")
-    .update({
-      isVerified: true,
-      emailVerified: new Date(),
-      isAcceptingMessages: true,
-    })
-    .eq("username", username);
+  const user = await updateUser(username, { isVerified: true });
 
-  if (error) {
+  if (user) {
     return {
-      type: "error",
-      message: "Database Error: Failed to verify user.",
+      type: 'success',
+      message: 'Email verified',
     };
   }
 
   return {
-    type: "success",
-    message: "Email verified",
+    type: 'error',
+    message: 'Database Error: Failed to verify user.',
   };
 }
 
-export async function resendCode(username: string) {
-  let token = Math.floor(100000 + Math.random() * 900000).toString();
-  let expires = new Date();
+export async function resendCode(email: string) {
+  // get the username
+  const user = await findUserByUsernameOrEmail(email, email);
+
+  if (!user) {
+    return {
+      type: 'error',
+      message: 'If the email is registered, you will receive a verification code.',
+    };
+  }
+
+  const token = Math.floor(100000 + Math.random() * 900000).toString();
+  const expires = new Date();
   expires.setMinutes(expires.getMinutes() + 15);
 
   // update the user
-  const { error } = await nextAuthClient
-    .from("verification_tokens")
-    .update({
-      token,
-      expires,
-    })
-    .eq("identifier", username);
+  const verificationToken = await updateToken(user.username!, token, expires);
 
-  if (error) {
+  if (!verificationToken) {
     return {
-      type: "error",
-      message: "Database Error: Failed to resend code.",
+      type: 'error',
+      message: 'If the email is registered, you will receive a verification code.',
     };
   }
 
-  const email = await getUserEmail(username);
-  if (!email) {
-    return {
-      type: "error",
-      message: "User not found",
-    };
-  }
-
-  const emailResponse = await sendVerificationEmail(email, username, token);
+  const emailResponse = await sendVerificationEmail(user.email!, user.username!, token);
 
   if (!emailResponse.success) {
     return {
-      type: "error",
-      message: "Failed to send verification email",
+      type: 'error',
+      message: 'Please try again later',
     };
   }
 
   return {
-    type: "success",
-    message: "Code resent",
+    type: 'success',
+    message: 'Code resent',
+    username: user.username,
   };
 }
 
@@ -275,28 +232,32 @@ export async function changeAcceptMessages(isAcceptingMessages: boolean) {
 
   if (!session || !_user) {
     return {
-      type: "error",
-      message: "Not authenticated",
+      type: 'error',
+      message: 'Not authenticated',
     };
   }
 
-  const userId = _user.id;
+  const username = _user.username;
 
-  const { data, error } = await nextAuthClient
-    .from("users")
-    .update({ isAcceptingMessages: isAcceptingMessages })
-    .eq("id", userId);
-
-  if (error) {
+  if (!username) {
     return {
-      type: "error",
-      message: "Failed to update user",
+      type: 'error',
+      message: 'Not authenticated',
+    };
+  }
+
+  const user = await updateUser(username, { isAcceptingMessages });
+
+  if (!user) {
+    return {
+      type: 'error',
+      message: 'Failed to update user',
     };
   } else {
-    revalidatePath("/dashboard");
+    revalidatePath('/dashboard');
     return {
-      type: "success",
-      message: "Setting updated successfully",
+      type: 'success',
+      message: 'Setting updated successfully',
     };
   }
 }

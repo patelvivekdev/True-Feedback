@@ -11,11 +11,12 @@ import {
 } from '@react-email/components';
 
 interface VerificationEmailProps {
+  BASE_URL: string;
   username: string;
   otp: string;
 }
 
-export default function VerificationEmail({ username, otp }: VerificationEmailProps) {
+export default function VerificationEmail({ BASE_URL, username, otp }: VerificationEmailProps) {
   return (
     <Html lang="en" dir="ltr">
       <Head>
@@ -38,17 +39,24 @@ export default function VerificationEmail({ username, otp }: VerificationEmailPr
         </Row>
         <Row>
           <Text>
-            Thank you for registering. Please use the following verification
-            code to complete your registration:
+            Thank you for registering. Please use the following verification code to complete your
+            registration:
           </Text>
         </Row>
         <Row>
-          <Text>{otp}</Text> 
+          <Text>{otp}</Text>
         </Row>
         <Row>
-          <Text>
-            If you did not request this code, please ignore this email.
-          </Text>
+          <Text>This code will expire in 15 minutes.</Text>
+          <Text>Use below link to verify your account</Text>
+        </Row>
+        <Row>
+          <Button href={`${BASE_URL}/verify/${username}`} style={{ color: '#61dafb' }}>
+            Verify here
+          </Button>
+        </Row>
+        <Row>
+          <Text>If you did not request this code, please ignore this email.</Text>
         </Row>
         {/* <Row>
           <Button

@@ -1,21 +1,16 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import toast from "react-hot-toast";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useParams, useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { verifySchema } from "@/schemas/verifySchema";
-import { resendCode, verifyCode } from "@/actions/auth";
+import { Button } from '@/components/ui/button';
+import { Form, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useParams, useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+import { verifySchema } from '@/schemas/verifySchema';
+import { verifyCode } from '@/actions/auth';
+import Link from 'next/link';
 
 export default function VerifyAccount() {
   const router = useRouter();
@@ -27,28 +22,19 @@ export default function VerifyAccount() {
   const onSubmit = async (data: z.infer<typeof verifySchema>) => {
     const response = await verifyCode(params.username, data.code);
 
-    if (response.type === "error") {
+    if (response.type === 'error') {
       toast.error(response.message);
     } else {
       toast.success(response.message);
-      router.replace("/sign-in");
-    }
-  };
-
-  const handleBtnClick = async () => {
-    const response = await resendCode(params.username);
-    if (response.type === "error") {
-      toast.error(response.message);
-    } else {
-      toast.success(response.message);
+      router.replace('/sign-in');
     }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
+    <div className="flex min-h-screen items-center justify-center bg-gray-100">
+      <div className="w-full max-w-md space-y-8 rounded-lg bg-white p-8 shadow-md">
         <div className="text-center">
-          <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-6">
+          <h1 className="mb-6 text-4xl font-extrabold tracking-tight lg:text-5xl">
             Verify Your Account
           </h1>
           <p className="mb-4">Enter the verification code sent to your email</p>
@@ -69,7 +55,10 @@ export default function VerifyAccount() {
             <Button type="submit">Verify</Button>
           </form>
         </Form>
-        <Button onClick={handleBtnClick}>Resend code</Button>
+        <p className="text-center text-sm text-gray-600">Didn&apos;t receive the code?</p>
+        <Link href={`/resend`}>
+          <Button>Resend OTP</Button>
+        </Link>
       </div>
     </div>
   );
